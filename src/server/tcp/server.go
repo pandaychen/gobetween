@@ -1,5 +1,7 @@
 package tcp
 
+//负载均衡网关的tcp-loadbalance实现
+
 /**
  * server.go - proxy server implementation
  *
@@ -222,6 +224,7 @@ func (this *Server) Stop() {
 	this.stop <- true
 }
 
+//处理新连接的封装函数
 func (this *Server) wrap(conn net.Conn, sniEnabled bool) {
 	log := logging.For("server.Listen.wrap")
 
@@ -271,6 +274,7 @@ func (this *Server) Listen() (err error) {
 
 	go func() {
 		for {
+			//接收一个客户端的连接请求
 			conn, err := this.listener.Accept()
 
 			if err != nil {
@@ -278,6 +282,7 @@ func (this *Server) Listen() (err error) {
 				return
 			}
 
+			//处理新连接
 			go this.wrap(conn, sniEnabled)
 		}
 	}()
