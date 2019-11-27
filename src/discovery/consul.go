@@ -31,7 +31,7 @@ func NewConsulDiscovery(cfg config.DiscoveryConfig) interface{} {
 
 	d := Discovery{
 		opts:  DiscoveryOpts{consulRetryWaitDuration},
-		fetch: consulFetch,
+		fetch: consulFetch,		//从consul获取后端服务的列表
 		cfg:   cfg,
 	}
 

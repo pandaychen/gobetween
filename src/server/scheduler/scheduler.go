@@ -89,6 +89,7 @@ type Scheduler struct {
 
 /**
  * Start scheduler
+ * 核心函数，gateway
  */
 func (this *Scheduler) Start() {
 
@@ -101,7 +102,9 @@ func (this *Scheduler) Start() {
 	this.stop = make(chan bool)
 	this.backends = make(map[core.Target]*core.Backend)
 
+	//服务发现启动（new routine），获取后端列表
 	this.Discovery.Start()
+	//健康检查启动（new routine）
 	this.Healthcheck.Start()
 
 	// backends stats pusher ticker
@@ -118,6 +121,7 @@ func (this *Scheduler) Start() {
 
 			// handle newly discovered backends
 			case backends := <-this.Discovery.Discover():
+				//接收服务发现获取的后端列表
 				this.HandleBackendsUpdate(backends)
 				this.Healthcheck.In <- this.Targets()
 				this.StatsHandler.BackendsCounter.In <- this.Targets()
