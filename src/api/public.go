@@ -10,6 +10,8 @@ import (
 	"net/http"
 )
 
+//实现HTTP-ping接口，/ping返回200 OK
+
 /**
  * Attaches / handlers
  */

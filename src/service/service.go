@@ -8,6 +8,7 @@ import (
 
 /**
  * Registry of factory methods for Services
+ * 全局的map，保存
  */
 var registry = make(map[string]func(config.Config) core.Service)
 

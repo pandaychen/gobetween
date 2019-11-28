@@ -109,6 +109,7 @@ func (this *Scheduler) Start() {
 
 	/**
 	 * Goroutine updates and manages backends
+	 * 启动一个独立的groutine
 	 */
 	go func() {
 		for {
@@ -126,6 +127,7 @@ func (this *Scheduler) Start() {
 
 			// handle backend healthcheck result
 			case checkResult := <-this.Healthcheck.Out:
+				// 从healthy check中获取结果
 				this.HandleBackendLiveChange(checkResult.Target, checkResult.Live)
 
 			/* ----- stats ----- */

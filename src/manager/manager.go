@@ -41,6 +41,7 @@ var originalCfg config.Config
 
 /**
  * Initialize manager from the initial/default configuration
+ *	main入口
  */
 func Initialize(cfg config.Config) {
 
@@ -61,6 +62,7 @@ func Initialize(cfg config.Config) {
 
 	// Go through config and start servers for each server
 	for name, serverCfg := range cfg.Servers {
+		//根据配置，创建每个server
 		err := Create(name, serverCfg)
 		if err != nil {
 			log.Fatal(err)

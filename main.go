@@ -37,11 +37,11 @@ func init() {
 
 	// Set GOMAXPROCS if not set
 	if os.Getenv("GOMAXPROCS") == "" {
-		runtime.GOMAXPROCS(runtime.NumCPU())
+		runtime.GOMAXPROCS(runtime.NumCPU())		//改成uber的cpu库
 	}
 
 	// Init random seed
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())				//初始化全局种子
 
 	// Save info
 	info.Version = version
@@ -80,15 +80,15 @@ func main() {
 		logging.Configure(cfg.Logging.Output, cfg.Logging.Level)
 
 		// Start API
-		go api.Start((*cfg).Api)
+		go api.Start((*cfg).Api)		//开启api功能（gin）
 
 		/* setup metrics */
-		go metrics.Start((*cfg).Metrics)
+		go metrics.Start((*cfg).Metrics)		//开启统计功能（Prometheus）
 
 		// Start manager
-		go manager.Initialize(*cfg)
+		go manager.Initialize(*cfg)				//开启核心逻辑
 
-		// block forever
+		// block forever					//block here
 		<-(chan string)(nil)
 	})
 }

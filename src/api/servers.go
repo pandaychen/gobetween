@@ -15,6 +15,8 @@ import (
 	"github.com/yyyar/gobetween/stats"
 )
 
+//具体的cgi实现，管理+统计
+
 /**
  * Attaches /servers handlers
  */
