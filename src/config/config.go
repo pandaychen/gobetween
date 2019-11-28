@@ -1,6 +1,7 @@
 package config
 
-//TOML文件解析器
+//TOML文件解析器，封装了config/gobetween.toml 的结构
+//TODO：准备实现一个etcd的服务发现的例子
 
 /**
  * config.go - config file definitions
@@ -96,7 +97,7 @@ type ProfilerConfig struct {
 
 /**
  * Server section config
-	这里是后端Server的配置？还是lb负载均衡的配置？
+	这里是后端Server的配置？(NO)还是lb负载均衡的配置？（YES）
  */
 type Server struct {
 	ConnectionOptions

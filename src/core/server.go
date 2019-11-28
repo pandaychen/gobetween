@@ -12,7 +12,7 @@ import (
 )
 
 /**
- * Server interface
+ * Server interface---Server的抽象封装
  */
 type Server interface {
 

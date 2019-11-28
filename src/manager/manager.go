@@ -27,8 +27,57 @@ import (
 /* Map of app current servers */
 var servers = struct {
 	sync.RWMutex
-	m map[string]core.Server
+	m map[string]core.Server			//key为配置文件的server.name，不可重复，value为函数集合，直接以map[X].方式调用
 }{m: make(map[string]core.Server)}
+
+/*
+# Servers contains as many [server.<name>] sections as needed.
+#
+[servers]
+
+# ---------- tcp example ----------- #   服务1
+
+[servers.sample]
+protocol = "tcp"
+bind = "0.0.0.0:3000"
+
+  [servers.sample.discovery]		#后端发现方式
+  kind = "static"		#---后端
+  static_list = [		#---后端服务列表
+      "localhost:8000",
+      "localhost:8001"
+  ]
+# ----------tcp example2--------------#	---服务2
+[servers.sample1]
+protocol = "tcp"
+bind = "0.0.0.0:3001"
+
+  [servers.sample1.discovery]
+  kind = "static"
+  static_list = [
+      "localhost:8002",
+      "localhost:8003"
+  ]
+
+# ---------- udp example ----------- #
+
+[servers.udpsample]
+bind = "localhost:4000"
+protocol = "udp"
+
+  [servers.udpsample.udp]
+  max_responses = 1
+
+  [servers.udpsample.discovery]
+  kind = "static"
+  static_list = [
+      "8.8.8.8:53",
+      "8.8.4.4:53",
+      "91.239.100.100:53"
+  ]
+*/
+
+
 
 /* default configuration for server */
 var defaults config.ConnectionOptions
@@ -61,6 +110,7 @@ func Initialize(cfg config.Config) {
 	services = service.All(cfg)
 
 	// Go through config and start servers for each server
+	//根据全局变量cfg(originalCfg)的lb配置，初始化每个lb（cfg.Servers）
 	for name, serverCfg := range cfg.Servers {
 		//根据配置，创建每个server
 		err := Create(name, serverCfg)
@@ -75,6 +125,7 @@ func Initialize(cfg config.Config) {
 	log.Info("Initialized")
 }
 
+//初始化默认配置
 func initDefaults() {
 	//defaults
 	if defaults.MaxConnections == nil {
@@ -97,6 +148,7 @@ func initDefaults() {
 	}
 }
 
+//初始化acme配置
 func initConfigGlobals(cfg *config.Config) {
 
 	//acme
@@ -131,11 +183,13 @@ func initProfiler(cfg *config.Config) {
  * Dumps current [servers] section to
  * the config file
  */
+
+//访问dump-cgi可以导出当前网关配置： curl http://127.0.0.1:8888/dump
 func DumpConfig(format string) (string, error) {
 
 	originalCfg.Servers = map[string]config.Server{}
 
-	servers.RLock()
+	servers.RLock()			//lock
 	for name, server := range servers.m {
 		originalCfg.Servers[name] = server.Cfg()
 	}
@@ -157,7 +211,17 @@ func All() map[string]config.Server {
 
 	servers.RLock()
 	for name, server := range servers.m {
-		result[name] = server.Cfg()
+		/*这里server是core.Server类型
+		server.Cfg() 是
+		type Server struct {
+			ConnectionOptions
+
+			// hostname:port
+			Bind string `toml:"bind" json:"bind"`
+			...
+		}
+		*/
+		result[name] = server.Cfg()		//保存每个lb的配置（name区分，绑定在ip+不同的port）
 	}
 	servers.RUnlock()
 
@@ -181,8 +245,10 @@ func Get(name string) interface{} {
 }
 
 /**
- * Create new server and launch it
+ * Create new lb server and launch it
  */
+
+//创建每个LB-balancer
 func Create(name string, cfg config.Server) error {
 
 	servers.Lock()
@@ -258,19 +324,24 @@ func Stats(name string) interface{} {
  * Prepare config (merge default configuration, and try to validate)
  * TODO: make validation better
  */
+
+//校验配置合法性
 func prepareConfig(name string, server config.Server, defaults config.ConnectionOptions) (config.Server, error) {
 
 	/* ----- Prerequisites ----- */
 
 	if server.Bind == "" {
+		//未配置绑定信息
 		return config.Server{}, errors.New("No bind specified for server " + name)
 	}
 
 	if server.Discovery == nil {
+		//未配置服务发现信息
 		return config.Server{}, errors.New("No .discovery specified for server " + name)
 	}
 
 	if server.Healthcheck == nil {
+		//使用默认的health-check配置
 		server.Healthcheck = &config.HealthcheckConfig{
 			Kind:     "none",
 			Interval: "0",
@@ -278,6 +349,8 @@ func prepareConfig(name string, server config.Server, defaults config.Connection
 		}
 	}
 
+
+	//处理healthcheck配置
 	switch server.Healthcheck.Kind {
 	case
 		"ping",
@@ -337,6 +410,7 @@ func prepareConfig(name string, server config.Server, defaults config.Connection
 			return config.Server{}, errors.New("probe_send has invalid syntax " + err.Error())
 		}
 
+		//处理探针类型
 		switch server.Healthcheck.ProbeStrategy {
 		case "starts_with":
 			if server.Healthcheck.ProbeRecvLen > 0 {
@@ -435,7 +509,7 @@ func prepareConfig(name string, server config.Server, defaults config.Connection
 	}
 
 	/* ----- Connections params and overrides ----- */
-
+	// lb的类型还是后端的类型？
 	/* Protocol */
 	switch server.Protocol {
 	case "":
@@ -469,6 +543,7 @@ func prepareConfig(name string, server config.Server, defaults config.Connection
 		return config.Server{}, errors.New("Cant use ping healthcheck with udp server")
 	}
 
+	//负载均衡类型
 	/* Balance */
 	switch server.Balance {
 	case
@@ -484,6 +559,7 @@ func prepareConfig(name string, server config.Server, defaults config.Connection
 		return config.Server{}, errors.New("Not supported balance type " + server.Balance)
 	}
 
+	//服务发现的类型
 	/* Discovery */
 	switch server.Discovery.Failpolicy {
 	case
