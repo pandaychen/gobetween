@@ -1,5 +1,7 @@
 package config
 
+//TOML文件解析器
+
 /**
  * config.go - config file definitions
  *
@@ -14,10 +16,10 @@ type Config struct {
 	Logging  LoggingConfig     `toml:"logging" json:"logging"`
 	Api      ApiConfig         `toml:"api" json:"api"`
 	Metrics  MetricsConfig     `toml:"metrics" json:"metrics"`
-	Defaults ConnectionOptions `toml:"defaults" json:"defaults"`
+	Defaults ConnectionOptions `toml:"defaults" json:"defaults"`	//连接参数
 	Acme     *AcmeConfig       `toml:"acme" json:"acme"`
 	Profiler *ProfilerConfig   `toml:"profiler" json:"profiler"`
-	Servers  map[string]Server `toml:"servers" json:"servers"`
+	Servers  map[string]Server `toml:"servers" json:"servers"`		//map：key-；value：
 }
 
 /**
@@ -40,7 +42,7 @@ type ApiConfig struct {
 }
 
 /**
- * Api Basic Auth Config
+ * Api Basic Auth Config（http basic auth）
  */
 type ApiBasicAuthConfig struct {
 	Login    string `toml:"login" json:"login"`
@@ -48,7 +50,7 @@ type ApiBasicAuthConfig struct {
 }
 
 /**
- * Api TLS server Config
+ * Api TLS server Config（TLS配置）
  */
 type ApiTlsConfig struct {
 	CertPath string `toml:"cert_path" json:"cert_path"`
@@ -94,6 +96,7 @@ type ProfilerConfig struct {
 
 /**
  * Server section config
+	这里是后端Server的配置？还是lb负载均衡的配置？
  */
 type Server struct {
 	ConnectionOptions

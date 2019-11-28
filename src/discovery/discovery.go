@@ -23,13 +23,14 @@ var registry = make(map[string]func(config.DiscoveryConfig) interface{})
  * Initialize type registry
  */
 func init() {
+	//包初始化函数，只调用一次
 	registry["static"] = NewStaticDiscovery
 	registry["srv"] = NewSrvDiscovery
 	registry["docker"] = NewDockerDiscovery
 	registry["json"] = NewJsonDiscovery
 	registry["exec"] = NewExecDiscovery
 	registry["plaintext"] = NewPlaintextDiscovery
-	registry["consul"] = NewConsulDiscovery
+	registry["consul"] = NewConsulDiscovery			//
 	registry["lxd"] = NewLXDDiscovery
 }
 
@@ -80,7 +81,7 @@ type Discovery struct {
 	/**
 	 * Channel where to push newly discovered backends
 	 */
-	out chan ([]core.Backend)
+	out chan ([]core.Backend)		//和scheduler通信的channel，用于发送后端列表
 
 	/**
 	 * Channel for stopping discovery
