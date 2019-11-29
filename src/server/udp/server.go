@@ -106,7 +106,7 @@ func (this *Server) Cfg() config.Server {
 }
 
 /**
- * Starts server
+ * Starts server 启动Server
  */
 func (this *Server) Start() error {
 

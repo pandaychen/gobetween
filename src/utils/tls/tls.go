@@ -108,6 +108,7 @@ func MakeTlsConfig(tlsC *config.Tls, getCertificate func(*tls.ClientHelloInfo) (
 
 /**
  * MakeBackendTLSConfig makes a tls.Config for connecting to backends
+	初始化网关，向后端发起连接的TLS配置（网关作为client，发起端）
  */
 func MakeBackendTLSConfig(backendsTls *config.BackendsTls) (*tls.Config, error) {
 

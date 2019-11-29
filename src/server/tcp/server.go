@@ -29,9 +29,9 @@ import (
 )
 
 /**
- * Server listens for client connections and
- * proxies it to backends
+ * Server listens for client connections and proxies it to backends
  */
+//网关的tcp转发bind封装（）
 type Server struct {
 
 	/* Server friendly name */
@@ -44,13 +44,13 @@ type Server struct {
 	cfg config.Server
 
 	/* Scheduler deals with discovery, balancing and healthchecks */
-	scheduler scheduler.Scheduler
+	scheduler scheduler.Scheduler	//核心结构体，用于实现服务发现、负载均衡和健康检查的逻辑
 
 	/* Current clients connection */
-	clients map[string]net.Conn
+	clients map[string]net.Conn		//SAVE-当前客户端的连接？
 
 	/* Stats handler */
-	statsHandler *stats.Handler
+	statsHandler *stats.Handler		//状态统计
 
 	/* ----- channels ----- */
 
@@ -75,6 +75,7 @@ type Server struct {
 	/* ----- modules ----- */
 
 	/* Access module checks if client is allowed to connect */
+	// 访问控制配置
 	access *access.Access
 }
 
@@ -88,7 +89,7 @@ func New(name string, cfg config.Server) (*Server, error) {
 	var err error = nil
 	statsHandler := stats.NewHandler(name)
 
-	// Create server
+	// Create server，初始化server结构
 	server := &Server{
 		name:         name,
 		cfg:          cfg,
@@ -98,6 +99,7 @@ func New(name string, cfg config.Server) (*Server, error) {
 		clients:      make(map[string]net.Conn),
 		statsHandler: statsHandler,
 		scheduler: scheduler.Scheduler{
+			//调用各自的new()初始化
 			Balancer:     balance.New(cfg.Sni, cfg.Balance),
 			Discovery:    discovery.New(cfg.Discovery.Kind, *cfg.Discovery),
 			Healthcheck:  healthcheck.New(cfg.Healthcheck.Kind, *cfg.Healthcheck),
@@ -114,7 +116,7 @@ func New(name string, cfg config.Server) (*Server, error) {
 	}
 
 	/* Add tls configs if needed */
-
+	//初始化连接后端配置
 	server.backendsTlsConfg, err = tlsutil.MakeBackendTLSConfig(cfg.BackendsTls)
 	if err != nil {
 		return nil, err
@@ -133,27 +135,31 @@ func (this *Server) Cfg() config.Server {
 }
 
 /**
- * Start server
+ * Start server，启动Server（核心逻辑）
  */
 func (this *Server) Start() error {
 
 	var err error
+	//本网关的tls配置
 	this.tlsConfig, err = tlsutil.MakeTlsConfig(this.cfg.Tls, this.GetCertificate)
 	if err != nil {
 		return err
 	}
 
 	go func() {
-
+		//goroutine runs forever（routine best practice）
 		for {
 			select {
 			case client := <-this.disconnect:
+				//处理连接断开事件
 				this.HandleClientDisconnect(client)
 
 			case ctx := <-this.connect:
+				//处理新连接事件
 				this.HandleClientConnect(ctx)
 
 			case <-this.stop:
+				//处理停止事件
 				this.scheduler.Stop()
 				this.statsHandler.Stop()
 				if this.listener != nil {
@@ -248,6 +254,7 @@ func (this *Server) wrap(conn net.Conn, sniEnabled bool) {
 		conn = tls.Server(conn, this.tlsConfig)
 	}
 
+	//向channel放入连接（excited）
 	this.connect <- &core.TcpContext{
 		hostname,
 		conn,
@@ -258,11 +265,12 @@ func (this *Server) wrap(conn net.Conn, sniEnabled bool) {
 /**
  * Listen on specified port for a connections
  */
+//TCP-server-bind：网关的tcp监听服务
 func (this *Server) Listen() (err error) {
 
 	log := logging.For("server.Listen")
 
-	// create tcp listener
+	// create tcp listener，创建listener
 	this.listener, err = net.Listen("tcp", this.cfg.Bind)
 
 	if err != nil {
@@ -282,7 +290,7 @@ func (this *Server) Listen() (err error) {
 				return
 			}
 
-			//处理新连接
+			//处理新连接（异步，一个连接一个routine，不优雅）
 			go this.wrap(conn, sniEnabled)
 		}
 	}()
