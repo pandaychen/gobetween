@@ -201,6 +201,7 @@ func (this *Server) HandleClientDisconnect(client net.Conn) {
 /**
  * Handle new client connection
  */
+//处理新连接
 func (this *Server) HandleClientConnect(ctx *core.TcpContext) {
 	client := ctx.Conn
 	log := logging.For("server")
@@ -213,6 +214,8 @@ func (this *Server) HandleClientConnect(ctx *core.TcpContext) {
 
 	this.clients[client.RemoteAddr().String()] = client
 	this.statsHandler.Connections <- uint(len(this.clients))
+
+	//开启一个新routine处理新到连接
 	go func() {
 		this.handle(ctx)
 		this.disconnect <- client
@@ -237,6 +240,7 @@ func (this *Server) wrap(conn net.Conn, sniEnabled bool) {
 	var hostname string
 	var err error
 
+	//SNI:服务器名称指示（英語：Server Name Indication，缩写：SNI）是TLS的一个扩展协议，在该协议下，在握手过程开始时客户端告诉它正在连接的服务器要连接的主机名称。
 	if sniEnabled {
 		var sniConn net.Conn
 		sniConn, hostname, err = sni.Sniff(conn, utils.ParseDurationOrDefault(this.cfg.Sni.ReadTimeout, time.Second*2))
@@ -251,15 +255,16 @@ func (this *Server) wrap(conn net.Conn, sniEnabled bool) {
 	}
 
 	if this.tlsConfig != nil {
+		//普通连接升级为tls连接（针对lb）
 		conn = tls.Server(conn, this.tlsConfig)
 	}
 
-	//向channel放入连接（excited）
+	//向channel放入连接（excited），使用TcpContext包装
 	this.connect <- &core.TcpContext{
-		hostname,
-		conn,
+		hostname,	//启动sni的hostname
+		conn,		//原始conn
 	}
-
+	//将conn放入channel，在Start()中接收
 }
 
 /**
@@ -301,11 +306,13 @@ func (this *Server) Listen() (err error) {
 /**
  * Handle incoming connection and prox it to backend
  */
+// 处理客户端到lb的连接，选择一个backend节点，进行转发
 func (this *Server) handle(ctx *core.TcpContext) {
 	clientConn := ctx.Conn
 	log := logging.For("server.handle [" + this.cfg.Bind + "]")
 
 	/* Check access if needed */
+	//检查ACL
 	if this.access != nil {
 		if !this.access.Allows(&clientConn.RemoteAddr().(*net.TCPAddr).IP) {
 			log.Debug("Client disallowed to connect ", clientConn.RemoteAddr())
@@ -317,17 +324,22 @@ func (this *Server) handle(ctx *core.TcpContext) {
 	log.Debug("Accepted ", clientConn.RemoteAddr(), " -> ", this.listener.Addr())
 
 	/* Find out backend for proxying */
+	//通过lb算法，选择一个后端进行连接
 	var err error
 	backend, err := this.scheduler.TakeBackend(ctx)
 	if err != nil {
+		//选择失败
 		log.Error(err, "; Closing connection: ", clientConn.RemoteAddr())
 		return
 	}
 
+	//已选择一个backend，发起连接
 	/* Connect to backend */
 	var backendConn net.Conn
 
+	//根据后端tls配置来进行tcp-connect
 	if this.cfg.BackendsTls != nil {
+		//后端的TLS配置
 		backendConn, err = tls.DialWithDialer(&net.Dialer{
 			Timeout: utils.ParseDurationOrDefault(*this.cfg.BackendConnectionTimeout, 0),
 		}, "tcp", backend.Address(), this.backendsTlsConfg)
@@ -337,6 +349,7 @@ func (this *Server) handle(ctx *core.TcpContext) {
 	}
 
 	if err != nil {
+		//拨号失败
 		this.scheduler.IncrementRefused(*backend)
 		log.Error(err)
 		return
@@ -362,6 +375,7 @@ func (this *Server) handle(ctx *core.TcpContext) {
 
 	/* ----- Stat proxying ----- */
 
+	//利用io.Copy进行两个tcp连接的复制
 	log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", this.listener.Addr(), " -> ", backendConn.RemoteAddr())
 	cs := proxy(clientConn, backendConn, utils.ParseDurationOrDefault(*this.cfg.BackendIdleTimeout, 0))
 	bs := proxy(backendConn, clientConn, utils.ParseDurationOrDefault(*this.cfg.ClientIdleTimeout, 0))

@@ -6,6 +6,8 @@ package balance
  * @author Yaroslav Pogrebnyak <yyyaroslav@gmail.com>
  */
 
+//balancer是一个全局注册结构
+
 import (
 	"reflect"
 

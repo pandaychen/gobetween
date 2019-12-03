@@ -48,8 +48,8 @@ type Op struct {
  * Request to elect backend
  */
 type ElectRequest struct {
-	Context  core.Context
-	Response chan core.Backend
+	Context  core.Context		//封装了client到lb的连接属性
+	Response chan core.Backend	//
 	Err      chan error
 }
 
@@ -150,7 +150,7 @@ func (this *Scheduler) Start() {
 			case op := <-this.ops:
 				this.HandleOp(op)
 
-			// elect backend
+			// elect backend（在TakeBackend函数中触发channel读取）
 			case electReq := <-this.elect:
 				this.HandleBackendElect(electReq)
 
@@ -271,13 +271,16 @@ func (this *Scheduler) HandleBackendsUpdate(backends []core.Backend) {
 /**
  * Perform backend election
  */
+//执行选举算法，选出一个后端endpoint节点
 func (this *Scheduler) HandleBackendElect(req ElectRequest) {
 
 	// Filter only live and discovered backends
 	var backends []*core.Backend
+	//this.backends保存了所有的后端endpoint节点
 	for _, b := range this.backends {
 
 		if !b.Stats.Live {
+			//非健康状态
 			continue
 		}
 
@@ -288,13 +291,15 @@ func (this *Scheduler) HandleBackendElect(req ElectRequest) {
 		backends = append(backends, b)
 	}
 
-	// Elect backend
+	//初筛后端endpoint
+	// Elect backend，从backends中选择一个节点（this.Balancer），传入backends（所有活跃的后端节点）
 	backend, err := this.Balancer.Elect(req.Context, backends)
 	if err != nil {
 		req.Err <- err
 		return
 	}
 
+	//选出一个，放回channel，触发scheduler的核心loop（这个思路可借鉴）
 	req.Response <- *backend
 }
 
@@ -348,8 +353,12 @@ func (this *Scheduler) Stop() {
  * Take elect backend for proxying
  */
 func (this *Scheduler) TakeBackend(context core.Context) (*core.Backend, error) {
+	//初始化ElectRequest结构
 	r := ElectRequest{context, make(chan core.Backend), make(chan error)}
+	// 将r(ElectRequest)结构放入channel，触发channel（this.elect）另一端的逻辑
 	this.elect <- r
+
+	//r.Response是一个channel，两个channel，一个error，一个后端channel（非常典型）
 	select {
 	case err := <-r.Err:
 		return nil, err

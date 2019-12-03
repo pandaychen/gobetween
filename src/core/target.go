@@ -6,6 +6,8 @@ package core
  * @author Yaroslav Pogrebnyak <yyyaroslav@gmail.com>
  */
 
+ //Address封装
+
 /**
  * Target host and port
  */

@@ -6,6 +6,8 @@ package core
  * @author Yaroslav Pogrebnyak <yyyaroslav@gmail.com>
  */
 
+ //后端节点封装
+
 import (
 	"fmt"
 )
@@ -25,6 +27,7 @@ type Backend struct {
 /**
  * Backend status
  */
+//每个后端的状态统计
 type BackendStats struct {
 	Live               bool   `json:"live"`
 	Discovered         bool   `json:"discovered"`

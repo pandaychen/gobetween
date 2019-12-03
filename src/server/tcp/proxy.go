@@ -28,6 +28,8 @@ const (
  * Perform copy/proxy data from 'from' to 'to' socket, counting r/w stats and
  * dropping connection if timeout exceeded
  */
+
+//典型的proxy封装，可抽象
 func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan core.ReadWriteCount {
 
 	log := logging.For("proxy")

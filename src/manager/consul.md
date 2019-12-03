@@ -1,4 +1,4 @@
-##  Consul服务发现的配置
+##  Consul用作服务发现的配置
 
 ```toml
 #  # -- consul -- #
