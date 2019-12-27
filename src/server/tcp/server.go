@@ -326,7 +326,7 @@ func (this *Server) handle(ctx *core.TcpContext) {
 	/* Find out backend for proxying */
 	//通过lb算法，选择一个后端进行连接
 	var err error
-	backend, err := this.scheduler.TakeBackend(ctx)
+	backend, err := this.scheduler.TakeBackend(ctx)	//这里是阻塞选择一个存活的后端
 	if err != nil {
 		//选择失败
 		log.Error(err, "; Closing connection: ", clientConn.RemoteAddr())
@@ -375,12 +375,18 @@ func (this *Server) handle(ctx *core.TcpContext) {
 
 	/* ----- Stat proxying ----- */
 
-	//利用io.Copy进行两个tcp连接的复制
+	//与目标后端，Dial成功，利用io.Copy进行两个tcp连接的复制，下面的proxy方法返回一个channel，用于读写的计数统计
+	/*
+		
+				    clientConn					   backendConn
+		Client<---------------------->Gobetween<------------------->BackendPoint
+	*/
 	log.Debug("Begin ", clientConn.RemoteAddr(), " -> ", this.listener.Addr(), " -> ", backendConn.RemoteAddr())
 	cs := proxy(clientConn, backendConn, utils.ParseDurationOrDefault(*this.cfg.BackendIdleTimeout, 0))
 	bs := proxy(backendConn, clientConn, utils.ParseDurationOrDefault(*this.cfg.ClientIdleTimeout, 0))
 
 	isTx, isRx := true, true
+	//hanle主逻辑，阻塞在这里，统计收发包的情况
 	for isTx || isRx {
 		select {
 		case s, ok := <-cs:
@@ -393,6 +399,7 @@ func (this *Server) handle(ctx *core.TcpContext) {
 		case s, ok := <-bs:
 			isTx = ok
 			if !ok {
+				//channel已经关闭，无法再读取了，将bs设置为nil
 				bs = nil
 				continue
 			}

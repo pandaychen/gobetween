@@ -2,7 +2,7 @@ package scheduler
 
 /**
  * scheduler.go - schedule operations on backends and manages them
- *
+ * 核心逻辑，负责后端节点的管理（监控健康状态和后端探测，及时更新结果）
  * @author Yaroslav Pogrebnyak <yyyaroslav@gmail.com>
  */
 
@@ -89,7 +89,7 @@ type Scheduler struct {
 
 /**
  * Start scheduler
- * 核心函数，gateway
+ * 核心函数，gateway，工作原理就是创建channel，并且for{}中监听channel发送过来的事件，根据事件做不同的响应处理等
  */
 func (this *Scheduler) Start() {
 
@@ -112,7 +112,7 @@ func (this *Scheduler) Start() {
 
 	/**
 	 * Goroutine updates and manages backends
-	 * 启动一个独立的groutine
+	 * 启动一个独立的goroutine
 	 */
 	go func() {
 		for {
@@ -124,8 +124,8 @@ func (this *Scheduler) Start() {
 			case backends := <-this.Discovery.Discover():
 				//接收服务发现获取的后端列表
 				this.HandleBackendsUpdate(backends)
-				this.Healthcheck.In <- this.Targets()
-				this.StatsHandler.BackendsCounter.In <- this.Targets()
+				this.Healthcheck.In <- this.Targets()		//将新的backends放入healthy探测
+				this.StatsHandler.BackendsCounter.In <- this.Targets()	//
 
 			/* ------ healthcheck ----- */
 
@@ -157,6 +157,7 @@ func (this *Scheduler) Start() {
 			/* ----- stop ----- */
 
 			// handle scheduler stop
+			//scheduler退出时，回收资源和优雅退出
 			case <-this.stop:
 				log.Info("Stopping scheduler ", this.StatsHandler.Name)
 				backendsPushTicker.Stop()
@@ -215,7 +216,7 @@ func (this *Scheduler) HandleBackendStatsChange(target core.Target, bs *counters
 }
 
 /**
- * Updated backend live status
+ * Updated backend live status，根据健康检查的结果来执行后端节点的更新
  */
 func (this *Scheduler) HandleBackendLiveChange(target core.Target, live bool) {
 
@@ -225,6 +226,7 @@ func (this *Scheduler) HandleBackendLiveChange(target core.Target, live bool) {
 		return
 	}
 
+	//关键：更新后端的健康探测的状态（结果），可能成功也可能失败
 	backend.Stats.Live = live
 
 	metrics.ReportHandleBackendLiveChange(fmt.Sprintf("%s", this.StatsHandler.Name), target, live)
@@ -280,7 +282,7 @@ func (this *Scheduler) HandleBackendElect(req ElectRequest) {
 	for _, b := range this.backends {
 
 		if !b.Stats.Live {
-			//非健康状态
+			//非健康状态（need lock or not?）
 			continue
 		}
 
@@ -299,7 +301,7 @@ func (this *Scheduler) HandleBackendElect(req ElectRequest) {
 		return
 	}
 
-	//选出一个，放回channel，触发scheduler的核心loop（这个思路可借鉴）
+	//通过负载均衡算法，选出一个，放回channel，触发scheduler的核心loop（这个思路可借鉴）
 	req.Response <- *backend
 }
 

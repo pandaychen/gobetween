@@ -247,7 +247,7 @@ func (this *Server) cleanup() {
  * Elect and connect to backend
  */
 func (this *Server) electAndConnect(clientAddr *net.UDPAddr) (net.Conn, *core.Backend, error) {
-	backend, err := this.scheduler.TakeBackend(core.UdpContext{
+	backend, err := this.scheduler.TakeBackend(core.UdpContext{	//这里是阻塞选择一个存活的后端
 		ClientAddr: *clientAddr,
 	})
 

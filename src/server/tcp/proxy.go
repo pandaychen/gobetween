@@ -42,6 +42,7 @@ func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan core.ReadWr
 	flushed := false
 
 	// Stats collecting goroutine
+	// 这个routine主要用来做状态统计的
 	go func() {
 
 		if timeout > 0 {
@@ -85,6 +86,7 @@ func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan core.ReadWr
 
 	// Run proxy copier
 	go func() {
+		//使用自己封装的Copy函数
 		err := Copy(to, from, stats)
 		// hack to determine normal close. TODO: fix when it will be exposed in golang
 		e, ok := err.(*net.OpError)
@@ -104,6 +106,7 @@ func proxy(to net.Conn, from net.Conn, timeout time.Duration) <-chan core.ReadWr
 
 /**
  * It's build by analogy of io.Copy
+ * 保持io.Copy的功能不变，增加了发送字节统计
  */
 func Copy(to io.Writer, from io.Reader, ch chan<- core.ReadWriteCount) error {
 
@@ -111,13 +114,15 @@ func Copy(to io.Writer, from io.Reader, ch chan<- core.ReadWriteCount) error {
 	var err error = nil
 
 	for {
+		//从from读数据
 		readN, readErr := from.Read(buf)
 
 		if readN > 0 {
-
+			//如果读ok，那么写入to
 			writeN, writeErr := to.Write(buf[0:readN])
 
 			if writeN > 0 {
+				//增加的逻辑，写入成功时，增加统计数据，通过channel传给统计协程
 				ch <- core.ReadWriteCount{CountRead: uint(readN), CountWrite: uint(writeN)}
 			}
 
